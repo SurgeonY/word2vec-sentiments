@@ -8,13 +8,7 @@ node_modules
 .DS_Store
 
 # models
-imdb.d2v
-imdb.d2v.syn0.npy
-imdb.d2v.syn1.npy
-imdb.d2v.syn1neg.npy
-imdb.d2v.table.npy
+*.d2v*
 
 # idea
 .idea
-/aclImdb/
-/aclImdb_v1.tar.gz
