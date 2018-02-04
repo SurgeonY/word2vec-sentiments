@@ -16,30 +16,25 @@ import logging
 import sys
 
 
-log = logging.getLogger()
+log = logging.getLogger('Doc2VecSentiments')
 log.setLevel(logging.INFO)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+handler.setFormatter(logging.Formatter('%(asctime)s %(name)s-%(levelname)s %(message)s'))
 log.addHandler(handler)
+
+# constant seed for reproducible results
+seed = 12345
+random.seed(seed)
 
 
 class TaggedLineDocs(object):
     def __init__(self, sources):
-        self.sources = sources
         self.sentences = []
 
-        # make sure that prefixes are unique - why do we need this??
-        prefixes = set()
-        for value in self.sources.values():
-            if value not in prefixes:
-                prefixes.add(value)
-            else:
-                raise Exception('Non-unique prefix encountered')
-
-        # load all in memory
-        for source, prefix in self.sources.items():
+        # load all in memory TODO make back again streaming from files in iter
+        for prefix, source in sources.items():
             with open(source, encoding="utf8") as fin:
                 for item_no, line in enumerate(fin):
                     self.sentences.append(TaggedDocument(utils.to_unicode(line).split(), [prefix + '_%s' % item_no]))
@@ -54,33 +49,34 @@ class TaggedLineDocs(object):
 
 # Start loading dataset and load/train from scratch a model
 log.info('source load')
-sources = {'test-neg.txt': 'TEST_NEG',
-           'test-pos.txt': 'TEST_POS',
-           'train-neg.txt': 'TRAIN_NEG',
-           'train-pos.txt': 'TRAIN_POS',
-           'train-unsup.txt': 'TRAIN_UNS'}
+sources = {'TEST_NEG': 'test-neg.txt',
+           'TEST_POS': 'test-pos.txt',
+           'TRAIN_NEG': 'train-neg.txt',
+           'TRAIN_POS': 'train-pos.txt',
+           'TRAIN_UNS': 'train-unsup.txt'}
 documents = TaggedLineDocs(sources)
+log.info('loaded %i documents', len(documents.sentences))
+
+
+epochs = 30
+vec_size = 200
 
 log.info('Initializing D2V model')
-epochs = 20
-vec_size = 400
+model = Doc2Vec(min_count=3, window=10, size=vec_size, sample=1e-4, negative=5, workers=4, dm=0,
+                seed=seed, iter=epochs)
+model.build_vocab(documents)
 
-# model = Doc2Vec(min_count=3, window=10, size=vec_size, sample=1e-4, negative=5, workers=4, dm=0, iter=epochs)
+log.info('Training D2V Epochs %i', epochs)
+model.train(documents, total_examples=model.corpus_count, epochs=model.iter)
 
-# log.info('Pre-trained D2V Model Load')
-model = Doc2Vec.load('./imdb_new.d2v')
+log.info('Model Save')
+model.save('./imdb.d2v')
 
-# model.build_vocab(documents)
-
-# log.info('Training Epochs %i', epochs)
-# model.train(documents, total_examples=model.corpus_count, epochs=model.iter)
-
-# log.info('Model Save')
-# model.save('./imdb_new.d2v')
+# log.info('Load Pre-trained D2V Model')
+# model = Doc2Vec.load('./imdb.d2v')
 
 
 # Classifying sentiment
-log.info('Sentiment')
 train_arrays = numpy.zeros((25000, vec_size))
 train_labels = numpy.zeros(25000)
 
@@ -91,8 +87,6 @@ for i in range(12500):
     train_arrays[12500 + i] = model.docvecs[prefix_train_neg]
     train_labels[i] = 1
     train_labels[12500 + i] = 0
-
-log.info(train_labels)
 
 test_arrays = numpy.zeros((25000, vec_size))
 test_labels = numpy.zeros(25000)
@@ -105,11 +99,12 @@ for i in range(12500):
     test_labels[i] = 1
     test_labels[12500 + i] = 0
 
-log.info('Fitting')
-classifier = LogisticRegression()
+# classifier = LogisticRegression()
+classifier = LogisticRegression(C=1.5, class_weight=None, dual=False, fit_intercept=True,
+                                intercept_scaling=1, penalty='l2', tol=0.0001, random_state=seed,
+                                solver='liblinear', max_iter=400)
+
+log.info('Fitting...')
 classifier.fit(train_arrays, train_labels)
 
-# LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,
-#                    intercept_scaling=1, penalty='l2', random_state=None, tol=0.0001)
-
-log.info(classifier.score(test_arrays, test_labels))
+log.info('Score: {:.3%}'.format(classifier.score(test_arrays, test_labels)))
