@@ -5,6 +5,7 @@ from gensim.models import Doc2Vec
 
 # random
 import random
+import numpy.random as nprandom
 
 # numpy
 import numpy
@@ -14,6 +15,7 @@ from sklearn.linear_model import LogisticRegression
 
 import logging
 import sys
+import os
 
 
 log = logging.getLogger('Doc2VecSentiments')
@@ -27,6 +29,8 @@ log.addHandler(handler)
 # constant seed for reproducible results
 seed = 12345
 random.seed(seed)
+nprandom.seed(seed)
+os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 class TaggedLineDocs(object):
@@ -63,7 +67,8 @@ vec_size = 200
 
 log.info('Initializing D2V model')
 model = Doc2Vec(min_count=3, window=10, size=vec_size, sample=1e-4, negative=5, workers=4, dm=0,
-                seed=seed, iter=epochs)
+                seed=seed,
+                iter=epochs)
 model.build_vocab(documents)
 
 log.info('Training D2V Epochs %i', epochs)
@@ -101,7 +106,8 @@ for i in range(12500):
 
 # classifier = LogisticRegression()
 classifier = LogisticRegression(C=1.5, class_weight=None, dual=False, fit_intercept=True,
-                                intercept_scaling=1, penalty='l2', tol=0.0001, random_state=seed,
+                                intercept_scaling=1, penalty='l2', tol=0.0001,
+                                random_state=seed,
                                 solver='liblinear', max_iter=400)
 
 log.info('Fitting...')
