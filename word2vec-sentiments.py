@@ -27,7 +27,7 @@ handler.setFormatter(logging.Formatter('%(asctime)s %(name)s-%(levelname)s %(mes
 log.addHandler(handler)
 
 # constant seed for reproducible results
-seed = 12345
+seed = 12347
 random.seed(seed)
 nprandom.seed(seed)
 os.environ["PYTHONHASHSEED"] = str(seed)
@@ -63,7 +63,7 @@ log.info('loaded %i documents', len(documents.sentences))
 
 
 epochs = 30
-vec_size = 200
+vec_size = 100
 
 log.info('Initializing D2V model')
 model = Doc2Vec(min_count=3, window=10, size=vec_size, sample=1e-4, negative=5, workers=4, dm=0,
@@ -108,9 +108,9 @@ for i in range(12500):
 classifier = LogisticRegression(C=1.5, class_weight=None, dual=False, fit_intercept=True,
                                 intercept_scaling=1, penalty='l2', tol=0.0001,
                                 random_state=seed,
-                                solver='liblinear', max_iter=400)
+                                solver='liblinear', max_iter=500)
 
-log.info('Fitting...')
+log.info('Fitting classifier...')
 classifier.fit(train_arrays, train_labels)
 
 log.info('Score: {:.3%}'.format(classifier.score(test_arrays, test_labels)))
